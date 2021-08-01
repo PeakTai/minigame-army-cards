@@ -1,0 +1,5 @@
+node_modules
+.idea
+miniprogram/*.js
+miniprogram/**/*.js
+package-lock.json

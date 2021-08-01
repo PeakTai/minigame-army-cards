@@ -1,0 +1,21 @@
+{
+  "name": "bg-wx-army-cards",
+  "version": "1.0.0",
+  "description": "binggui army caards minigame",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "minigame",
+    "wechat",
+    "weixin",
+    "army",
+    "cards"
+  ],
+  "author": "peak tai",
+  "license": "ISC",
+  "dependencies": {
+    "minigame-api-typings": "^3.4.0"
+  }
+}
