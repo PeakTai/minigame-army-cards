@@ -5,6 +5,8 @@ import Basis from "./basis";
 
 export default abstract class Pager {
 
+  public abstract getId(): string;
+
   public abstract init(): void;
 
   public abstract destroy(): void;
@@ -38,9 +40,31 @@ export default abstract class Pager {
         reject(e)
       };
       image.src = bgUrl
-
     })
+  }
 
+  /***
+   * 加载图片，返回图片对象
+   */
+  public loadImage(url: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const image = wx.createImage()
+      image.onload = () => {
+        resolve(image)
+      };
+      image.onerror = (e) => {
+        reject(e)
+      };
+      image.src = url
+    })
+  }
+
+  public renderBgColor(color: string): void {
+    const basis = Basis.getInstance()
+    const availableArea = basis.getAvailableArea();
+    const renderContext = basis.getRenderContext();
+    renderContext.fillStyle = color
+    renderContext.fillRect(0, 0, availableArea.width, availableArea.height)
   }
 
 }

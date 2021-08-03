@@ -1,13 +1,13 @@
 import Basis from "./core/basis";
 import PagerManager from "./core/PagerManager";
-import Pager from "./core/Pager";
 import Index from "./pages/index";
+import Pve from "./pages/pve/pve";
 
 Basis.init().then(() => {
   // 初始化成功后设置页面，切换到首页
-  const pagerMap: Map<string, Pager> = new Map<string, Pager>()
-  pagerMap.set('index', new Index())
-  const pagerManager = PagerManager.init(pagerMap)
+  const pagerManager = PagerManager.init([
+    new Index(), new Pve()
+  ])
   pagerManager.switchToPager('index')
 }).catch((error) => {
   const msg = error.msg ? error.msg : `${error}`

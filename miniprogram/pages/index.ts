@@ -3,6 +3,7 @@ import {showSuccess, showWarning} from "../utils/message";
 import Basis from "../core/basis";
 import {RectBounding} from "../core/RectBounding";
 import OnTouchStartCallbackResult = WechatMinigame.OnTouchStartCallbackResult;
+import PagerManager from "../core/PagerManager";
 
 let touchStartHandler: any = null
 
@@ -15,7 +16,8 @@ export default class Index extends Pager {
 
   destroy(): void {
     if (touchStartHandler) {
-      wx.offTouchStart(this.handleTouch)
+      wx.offTouchStart(touchStartHandler)
+      touchStartHandler = null
     }
   }
 
@@ -62,10 +64,10 @@ export default class Index extends Pager {
     renderContext.font = `${fontSize}px Arial`
     const buttonText = this.buttons[index]
     const buttonWidth = renderContext.measureText(buttonText).width
-    const left = basis.convertPositionRightToLeft(buttonWidth) - 10
+    const left = basis.convertPositionRightToLeft(buttonWidth) - basis.convertPercentageWidth(0.05)
     const lineHeight = basis.convertPercentageWidth(0.15)
     const top = basis.convertPercentageTop(0.3) + (index * lineHeight)
-    return {left, top, width: buttonWidth, height: fontSize}
+    return new RectBounding(left, top, buttonWidth, fontSize)
   }
 
   //  (result: OnTouchStartCallbackResult) => void
@@ -78,10 +80,7 @@ export default class Index extends Pager {
     let touchButtonIndex: number = -1
     for (let i = 0; i < this.buttons.length; i++) {
       const bounding = this.getButtonBounding(i);
-      if (touch.clientX >= bounding.left
-        && touch.clientX <= bounding.width + bounding.left
-        && touch.clientY >= bounding.top
-        && touch.clientY <= bounding.top + bounding.height) {
+      if (bounding.contain(touch.clientX, touch.clientY)) {
         touchButtonIndex = i
         break
       }
@@ -89,6 +88,15 @@ export default class Index extends Pager {
     if (touchButtonIndex === -1) {
       return;
     }
+    const activeButton = this.buttons[touchButtonIndex]
+    if (activeButton === '人机对战') {
+      PagerManager.getInstance().switchToPager('pve')
+      return;
+    }
     showSuccess(this.buttons[touchButtonIndex])
+  }
+
+  getId(): string {
+    return 'index'
   }
 }

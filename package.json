@@ -4,7 +4,8 @@
   "description": "binggui army caards minigame",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "tsc",
+    "tsc": "tsc"
   },
   "keywords": [
     "minigame",
@@ -16,6 +17,7 @@
   "author": "peak tai",
   "license": "ISC",
   "dependencies": {
-    "minigame-api-typings": "^3.4.0"
+    "minigame-api-typings": "^3.4.0",
+    "typescript": "^4.1.3"
   }
 }

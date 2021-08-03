@@ -3,6 +3,7 @@
  */
 import Basis from "./basis";
 import Pager from "./Pager";
+import {showWarning} from "../utils/message";
 
 export default class PagerManager {
 
@@ -11,16 +12,10 @@ export default class PagerManager {
   private currentPager: Pager | null = null;
   private map: Map<string, Pager> = new Map<string, Pager>()
 
-  public static init(pagerMap: Map<string, Pager>): PagerManager {
+  public static init(pagers: Pager[]): PagerManager {
     this.instance = new PagerManager();
-    const keys = pagerMap.keys()
-    const keyIter = keys.next()
-    if (!keyIter.done) {
-      const key = keyIter.value
-      const value = pagerMap.get(key)
-      if (value) {
-        this.instance.map.set(key, value)
-      }
+    for (let pager of pagers) {
+      this.instance.map.set(pager.getId(), pager)
     }
     return this.instance;
   }
@@ -38,10 +33,14 @@ export default class PagerManager {
   public switchToPager(id: string): void {
     const targetPager = this.map.get(id)
     if (!targetPager) {
+      showWarning(`找不到要切换的页面：${id}`)
       throw '找不到要切换的页面';
     }
     const basis = Basis.getInstance();
     if (this.currentPager) {
+      if (this.currentPager.getId() === id) {
+        return
+      }
       this.currentPager.destroy()
     }
     // 以后可能做个切换特效

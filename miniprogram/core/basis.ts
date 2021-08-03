@@ -47,7 +47,12 @@ export default class Basis {
     this.renderContext = this.canvas.getContext('2d')
     // 区域位置
     // 由于有些屏幕比例比较特殊，像 ipad 就是 2:3 的，游戏仅支持 16:9 到 18:9的比例，其它的比例仅显示在中间位置.
-    const {windowWidth, windowHeight} = wx.getSystemInfoSync()
+    const {windowWidth, windowHeight, pixelRatio} = wx.getSystemInfoSync()
+    const realWidth = windowWidth * pixelRatio
+    const realHeight = windowHeight * pixelRatio
+    this.canvas.width = realWidth
+    this.canvas.height = realHeight
+
     // 屏幕太小也不行
     if (windowWidth < 320) {
       throw '屏幕太小无法正常显示'
@@ -55,11 +60,11 @@ export default class Basis {
     if (windowHeight < 568) {
       throw '屏幕太小无法正常显示'
     }
-    const ratio = windowWidth / windowHeight
+    const ratio = realWidth / realHeight
     if (ratio >= (8 / 20) && ratio <= (9 / 16)) {
       this.availableArea = {
-        width: windowWidth,
-        height: windowHeight,
+        width: realWidth,
+        height: realHeight,
         left: 0,
         top: 0
       }
@@ -68,22 +73,22 @@ export default class Basis {
     // 计算可用区域位置
     // 屏幕细长的情况，比 16/8 还要长
     if (ratio < (8 / 20)) {
-      const height = windowWidth * (16 / 9)
+      const height = realWidth * (16 / 9)
       this.availableArea = {
-        width: windowWidth,
+        width: realWidth,
         height,
         left: 0,
-        top: (windowHeight - height) / 2
+        top: (realHeight - height) / 2
       }
       return;
     }
     // 剩下的情况是屏幕比较宽的情况
-    const width = windowHeight * (9 / 16)
+    const width = realHeight * (9 / 16)
     this.availableArea = {
       width,
-      height: windowHeight,
+      height: realHeight,
       top: 0,
-      left: (windowWidth - width) / 2
+      left: (realWidth - width) / 2
     }
   }
 
@@ -100,8 +105,8 @@ export default class Basis {
   }
 
   public clearScreen() {
-    const {windowWidth, windowHeight} = wx.getSystemInfoSync()
-    this.getRenderContext().clearRect(0, 0, windowWidth, windowHeight);
+    const {windowWidth, windowHeight, pixelRatio} = wx.getSystemInfoSync()
+    this.getRenderContext().clearRect(0, 0, windowWidth * pixelRatio, windowHeight * pixelRatio);
   }
 
   public convertPositionLeft(expectLeft: number): number {
