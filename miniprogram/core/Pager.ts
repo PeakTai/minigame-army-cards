@@ -1,70 +1,129 @@
+import {boundingContain, Element, ImageElement, TextElement} from "./element";
+import Basis from "./basis";
+import OnTouchStartCallbackResult = WechatMinigame.OnTouchStartCallbackResult;
+import {renderElement, renderImage, renderText} from "./render";
+
 /**
  * 页面抽象类.
  */
-import Basis from "./basis";
-
 export default abstract class Pager {
+
+  private elements: Element[] = []
+
+  private touchStartHandler: null | ((result: OnTouchStartCallbackResult) => void) = null
+
+  protected setElements(elements: Element[]): void {
+    this.elements = elements;
+  }
+
+  protected getElementById(id: string): Element | undefined {
+    return this.elements.find(element => element.id === id)
+  }
+
+  protected getElementsByType(type: string): Element[] {
+    return this.elements.filter(item => {
+      const anyItem = item as any
+      return anyItem.type === type
+    })
+  }
+
+  protected deleteElementById(id: string) {
+    const idx = this.elements.findIndex(element => element.id === id)
+    if (idx !== -1) {
+      this.elements.splice(idx, 1)
+    }
+  }
+
+  /**
+   * 获取页面宽度.
+   * @protected
+   */
+  protected getWidth(): number {
+    return Basis.getInstance().getAvailableArea().width;
+  }
+
+  /**
+   * 获取页面高度.
+   * @protected
+   */
+  protected getHeight(): number {
+    return Basis.getInstance().getAvailableArea().height;
+  }
+
+  /**
+   * 渲染，只有调用了这个方法才会将内容重新渲染.
+   * @protected
+   */
+  protected render(): void {
+    // 渲染所有的元素
+    for (let element of this.elements) {
+      // 判定元素是什么类型，由于都是接口，判定就比较麻烦了，不能使用 instanceof
+      const imageElement = element as ImageElement
+      if ('image' === imageElement.type && imageElement.image) {
+        renderImage(imageElement)
+        continue
+      }
+      const textElement = element as TextElement
+      if ('text' === textElement.type && textElement.text) {
+        renderText(textElement)
+        continue
+      }
+      // 普通默认渲染
+      renderElement(element)
+    }
+  }
+
+  /**
+   * 处理渲染事件.
+   * @param result
+   * @private
+   */
+  private handleTouchStart(result: OnTouchStartCallbackResult): void {
+    const touch = result.touches[0]
+    // 判定所有元素的的边界
+    for (let i = 0; i < this.elements.length; i++) {
+      const element = this.elements[i]
+      if (!element.onclick) {
+        continue
+      }
+      if (!boundingContain(element, touch.clientX, touch.clientY)) {
+        continue
+      }
+      // 如果边界包含了，那后续的所有元素不包含才可以
+      let containByFollow: boolean = false
+      for (let j = i + 1; j < this.elements.length; j++) {
+        const followEle = this.elements[j]
+        if (boundingContain(followEle, touch.clientX, touch.clientY)) {
+          containByFollow = true
+          break
+        }
+      }
+      // 如果后续的元素也包含这个点，那么不能触发事件，后面的元素覆盖上前面的上面，优先级更高
+      if (containByFollow) {
+        continue
+      }
+      // 触发事件
+      element.onclick()
+      break
+    }
+  }
 
   public abstract getId(): string;
 
-  public abstract init(): void;
-
-  public abstract destroy(): void;
-
-  /**
-   * 渲染背景图
-   * @param bgUrl 背景图的地址
-   * @param corp 是否要裁剪
-   */
-  public renderBgImg(bgUrl: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      wx.createImage()
-      var image = wx.createImage()
-      image.onload = function () {
-        try {
-          const basis = Basis.getInstance()
-          const renderContext = basis.getRenderContext();
-          renderContext.drawImage(
-            image as any,
-            basis.convertPositionLeft(0),
-            basis.convertPositionTop(0),
-            basis.getAvailableArea().width,
-            basis.getAvailableArea().height
-          );
-          resolve()
-        } catch (e) {
-          reject(e)
-        }
-      };
-      image.onerror = (e) => {
-        reject(e)
-      };
-      image.src = bgUrl
-    })
+  public preInit(): void {
+    this.touchStartHandler = this.handleTouchStart.bind(this)
+    wx.onTouchStart(this.touchStartHandler)
+    this.init()
   }
 
-  /***
-   * 加载图片，返回图片对象
-   */
-  public loadImage(url: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const image = wx.createImage()
-      image.onload = () => {
-        resolve(image)
-      };
-      image.onerror = (e) => {
-        reject(e)
-      };
-      image.src = url
-    })
-  }
+  protected abstract init(): void;
 
-  public renderBgColor(color: string): void {
-    const basis = Basis.getInstance()
-    const availableArea = basis.getAvailableArea();
-    const renderContext = basis.getRenderContext();
-    renderContext.fillStyle = color
-    renderContext.fillRect(0, 0, availableArea.width, availableArea.height)
-  }
+  public preDestroy(): void {
+    if (this.touchStartHandler) {
+      wx.offTouchStart(this.touchStartHandler)
+    }
+    this.destroy()
+  };
 
+  protected abstract destroy(): void ;
 }

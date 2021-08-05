@@ -1,11 +1,8 @@
 import Pager from "../core/Pager";
 import {showSuccess, showWarning} from "../utils/message";
 import Basis from "../core/basis";
-import {RectBounding} from "../core/RectBounding";
-import OnTouchStartCallbackResult = WechatMinigame.OnTouchStartCallbackResult;
 import PagerManager from "../core/PagerManager";
-
-let touchStartHandler: any = null
+import {Element, ImageElement, TextElement} from "../core/element";
 
 /**
  * 首页.
@@ -15,85 +12,62 @@ export default class Index extends Pager {
   private buttons: string[] = ['人机对战', '蓝牙对战', '在线对战']
 
   destroy(): void {
-    if (touchStartHandler) {
-      wx.offTouchStart(touchStartHandler)
-      touchStartHandler = null
-    }
+
   }
 
   init(): void {
     Promise.resolve().then(async () => {
-      await this.renderBgImg('images/bg1.jpg')
+      const basis = Basis.getInstance();
+      const elements: Element[] = []
+      const bgImg = await basis.loadImage('images/bg1.jpg')
+      // 背景
+      const bg: ImageElement = {
+        id: 'bg',
+        type: 'image',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        image: bgImg
+      }
+      elements.push(bg)
       for (let i = 0; i < this.buttons.length; i++) {
-        this.renderButton(i)
+        const lineHeight = this.getWidth() * 0.12
+        const fontSize = this.getWidth() * 0.08
+        const textElement: TextElement = {
+          id: `button-${i}`,
+          type: 'text',
+          color: 'white',
+          text: this.buttons[i],
+          fontSize,
+          lineHeight,
+          right: this.getWidth() * 0.05,
+          align: 'right',
+          top: this.getHeight() * 0.3 + i * lineHeight,
+          height: lineHeight,
+          width: fontSize * this.buttons[i].length,
+          onclick: () => this.handleTouchButton(i)
+        }
+        elements.push(textElement)
       }
-      touchStartHandler = (e: OnTouchStartCallbackResult) => {
-        this.handleTouch(e)
-      }
-      wx.onTouchStart(touchStartHandler)
+      console.log(elements)
+      this.setElements(elements)
+      this.render()
     }).catch(showWarning)
+
+
   }
 
-  private renderButton(index: number): void {
-    const buttonText = this.buttons[index]
-    const bounding = this.getButtonBounding(index)
-    const basis = Basis.getInstance();
-    const renderContext = basis.getRenderContext();
-    renderContext.fillStyle = '#fff'
-    renderContext.font = `${bounding.height}px Arial`
-    renderContext.textBaseline = 'top'
-    renderContext.fillText(
-      buttonText,
-      // 给右边留10像素间隔
-      bounding.left,
-      bounding.top
-    );
-    renderContext.stroke()
-  }
-
-  /**
-   * 获取按钮的边界信息.
-   * @param index
-   * @private
-   */
-  private getButtonBounding(index: number): RectBounding {
-    const basis = Basis.getInstance();
-    // 按钮的文字大小定为宽度的百分之8
-    const fontSize = basis.convertPercentageWidth(0.08)
-    const renderContext = basis.getRenderContext();
-    renderContext.font = `${fontSize}px Arial`
-    const buttonText = this.buttons[index]
-    const buttonWidth = renderContext.measureText(buttonText).width
-    const left = basis.convertPositionRightToLeft(buttonWidth) - basis.convertPercentageWidth(0.05)
-    const lineHeight = basis.convertPercentageWidth(0.15)
-    const top = basis.convertPercentageTop(0.3) + (index * lineHeight)
-    return new RectBounding(left, top, buttonWidth, fontSize)
-  }
-
-  //  (result: OnTouchStartCallbackResult) => void
-  private handleTouch(result: OnTouchStartCallbackResult): void {
-    if (!result.touches || !result.touches.length) {
+  private handleTouchButton(btnIdx: number): void {
+    const button = this.buttons[btnIdx]
+    if (!button) {
       return
     }
-    const touch = result.touches[0]
-    // 判断是点击了哪个按钮
-    let touchButtonIndex: number = -1
-    for (let i = 0; i < this.buttons.length; i++) {
-      const bounding = this.getButtonBounding(i);
-      if (bounding.contain(touch.clientX, touch.clientY)) {
-        touchButtonIndex = i
-        break
-      }
-    }
-    if (touchButtonIndex === -1) {
-      return;
-    }
-    const activeButton = this.buttons[touchButtonIndex]
-    if (activeButton === '人机对战') {
+    if (button === '人机对战') {
       PagerManager.getInstance().switchToPager('pve')
       return;
     }
-    showSuccess(this.buttons[touchButtonIndex])
+    showSuccess(button)
   }
 
   getId(): string {

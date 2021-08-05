@@ -41,11 +41,11 @@ export default class PagerManager {
       if (this.currentPager.getId() === id) {
         return
       }
-      this.currentPager.destroy()
+      this.currentPager.preDestroy()
     }
     // 以后可能做个切换特效
     basis.clearScreen()
     this.currentPager = targetPager;
-    this.currentPager.init()
+    this.currentPager.preInit()
   }
 }

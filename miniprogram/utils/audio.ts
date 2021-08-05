@@ -14,6 +14,12 @@ export function playAudio(url: string): void {
   audioContext.play()
 }
 
+export function buildAudio(url: string): InnerAudioContext {
+  const audio = wx.createInnerAudioContext()
+  audio.src = url // src 可以设置 http(s) 的路径，本地文件路径或者代码包文件路径
+  return audio;
+}
+
 export function pauseAudio(): void {
   if (audioContext) {
     audioContext.pause()

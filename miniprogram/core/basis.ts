@@ -11,7 +11,7 @@ interface AvailableArea {
 }
 
 /**
- * 基础类，提供获画布，计算可用区域信息，坐标转换等.单例模式.
+ * 基础类，提供获画布，计算可用区域信息，坐标转换和基础的绘制等.单例模式.
  */
 export default class Basis {
 
@@ -189,6 +189,64 @@ export default class Basis {
       return 0
     }
     return (left - this.availableArea.left) / this.availableArea.width
+  }
+
+  public renderBgColor(color: string): void {
+    const basis = Basis.getInstance()
+    const availableArea = basis.getAvailableArea();
+    const renderContext = basis.getRenderContext();
+    renderContext.fillStyle = color
+    renderContext.fillRect(0, 0, availableArea.width, availableArea.height)
+  }
+
+  /***
+   * 加载图片，返回图片对象
+   */
+  public loadImage(url: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const image = wx.createImage()
+      image.onload = () => {
+        resolve(image)
+      };
+      image.onerror = (e) => {
+        reject(e)
+      };
+      image.src = url
+    })
+  }
+
+  /**
+   * 渲染背景图
+   * @param bgUrl 背景图的地址
+   * @param corp 是否要裁剪
+   */
+  public renderBgImg(bgUrl: string): Promise<void> {
+    return this.loadImage(bgUrl)
+      .then(image => {
+        this.getRenderContext().drawImage(
+          image as any,
+          this.convertPositionLeft(0),
+          this.convertPositionTop(0),
+          this.getAvailableArea().width,
+          this.getAvailableArea().height
+        );
+      })
+  }
+
+  /**
+   * 将一段文字填充在正中间，仅适合文字较短不换行的情况.
+   * @param text
+   */
+  public fillTextInCenter(text: string, fontSize: number, color: string): void {
+    const renderContext = this.getRenderContext();
+    renderContext.fillStyle = color
+    renderContext.font = `${fontSize}px Arial`
+    const textWidth = renderContext.measureText(text).width
+    let left = (this.getAvailableArea().width - textWidth) / 2
+    left = this.convertPositionLeft(left)
+    let top = (this.getAvailableArea().height - fontSize) / 2
+    top = this.convertPositionTop(top)
+    renderContext.fillText(text, left, top)
   }
 
 
