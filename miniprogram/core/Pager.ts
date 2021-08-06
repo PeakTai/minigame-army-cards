@@ -12,6 +12,12 @@ export default abstract class Pager {
 
   private touchStartHandler: null | ((result: OnTouchStartCallbackResult) => void) = null
 
+  private status:'active'|'inactive' = 'active'
+
+  protected getStatus():'active'|'inactive'{
+    return this.status;
+  }
+
   protected setElements(elements: Element[]): void {
     this.elements = elements;
   }
@@ -55,6 +61,9 @@ export default abstract class Pager {
    * @protected
    */
   protected render(): void {
+    if(this.status!=='active'){
+      return;
+    }
     // 渲染所有的元素
     for (let element of this.elements) {
       // 判定元素是什么类型，由于都是接口，判定就比较麻烦了，不能使用 instanceof
@@ -113,6 +122,7 @@ export default abstract class Pager {
   public preInit(): void {
     this.touchStartHandler = this.handleTouchStart.bind(this)
     wx.onTouchStart(this.touchStartHandler)
+    this.status = 'active'
     this.init()
   }
 
@@ -122,6 +132,7 @@ export default abstract class Pager {
     if (this.touchStartHandler) {
       wx.offTouchStart(this.touchStartHandler)
     }
+    this.status = 'inactive'
     this.destroy()
   };
 
