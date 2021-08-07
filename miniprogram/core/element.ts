@@ -5,7 +5,6 @@ import Basis from "./basis";
 import Image = WechatMinigame.Image;
 
 export interface Element {
-  id: string;
   top?: number;
   left?: number;
   right?: number;
@@ -54,6 +53,14 @@ export interface TextElement extends Element {
 export interface ImageElement extends Element {
   type: 'image';
   image: Image;
+}
+
+export interface ButtonElement extends Element {
+  type: 'button',
+  text: string,
+  fontSize?: number,
+  bgColor?: string,
+  color?: string
 }
 
 /**
@@ -127,9 +134,9 @@ export function getRealBoundingOfElement(element: Element): Bounding {
       throw '无法获取元素的位置和高度'
     }
     height = element.height;
-    top = availableArea.top + availableArea.height - element.bottom
+    top = availableArea.top + availableArea.height - element.height - element.bottom
   }
-  return {left, top, width, height}
+  return {left: Math.round(left), top: Math.round(top), width: Math.round(width), height: Math.round(height)}
 }
 
 export function boundingContain(element: Element, x: number, y: number): boolean {

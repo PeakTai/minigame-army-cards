@@ -1,7 +1,7 @@
-import {boundingContain, Element, ImageElement, TextElement} from "./element";
+import {boundingContain, ButtonElement, Element, ImageElement, TextElement} from "./element";
 import Basis from "./basis";
 import OnTouchStartCallbackResult = WechatMinigame.OnTouchStartCallbackResult;
-import {renderElement, renderImage, renderText} from "./render";
+import {renderButton, renderElement, renderImage, renderText} from "./render";
 
 /**
  * 页面抽象类.
@@ -12,32 +12,14 @@ export default abstract class Pager {
 
   private touchStartHandler: null | ((result: OnTouchStartCallbackResult) => void) = null
 
-  private status:'active'|'inactive' = 'active'
+  private status: 'active' | 'inactive' = 'active'
 
-  protected getStatus():'active'|'inactive'{
+  protected getStatus(): 'active' | 'inactive' {
     return this.status;
   }
 
-  protected setElements(elements: Element[]): void {
+  private setElements(elements: Element[]): void {
     this.elements = elements;
-  }
-
-  protected getElementById(id: string): Element | undefined {
-    return this.elements.find(element => element.id === id)
-  }
-
-  protected getElementsByType(type: string): Element[] {
-    return this.elements.filter(item => {
-      const anyItem = item as any
-      return anyItem.type === type
-    })
-  }
-
-  protected deleteElementById(id: string) {
-    const idx = this.elements.findIndex(element => element.id === id)
-    if (idx !== -1) {
-      this.elements.splice(idx, 1)
-    }
   }
 
   /**
@@ -60,8 +42,9 @@ export default abstract class Pager {
    * 渲染，只有调用了这个方法才会将内容重新渲染.
    * @protected
    */
-  protected render(): void {
-    if(this.status!=='active'){
+  public render(): void {
+    this.setElements(this.buildElements());
+    if (this.status !== 'active') {
       return;
     }
     // 渲染所有的元素
@@ -77,10 +60,17 @@ export default abstract class Pager {
         renderText(textElement)
         continue
       }
+      const buttonElement = element as ButtonElement
+      if ('button' === buttonElement.type && buttonElement.text) {
+        renderButton(buttonElement)
+        continue
+      }
       // 普通默认渲染
       renderElement(element)
     }
   }
+
+  protected abstract buildElements(): Element[];
 
   /**
    * 处理渲染事件.

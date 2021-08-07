@@ -43,9 +43,25 @@ export default class PagerManager {
       }
       this.currentPager.preDestroy()
     }
-    // 以后可能做个切换特效
+
     basis.clearScreen()
     this.currentPager = targetPager;
     this.currentPager.preInit()
+    // // 以后可能做个切换特效
+    // // todo 实现切换特效
+    // Promise.resolve().then(async () => {
+    //   const context = basis.getRenderContext();
+    //   const area = basis.getAvailableArea()
+    //   const width = basis.getAvailableArea().width
+    //   for (let i = 0; i < 60; i++) {
+    //     const x = width * i / 60
+    //     context.fillStyle = 'white'
+    //     context.fillRect(Math.floor(area.left + x), area.top, Math.ceil(width / 60), basis.getAvailableArea().height)
+    //     await sleep(5)
+    //   }
+    //   basis.clearScreen()
+    //   this.currentPager = targetPager;
+    //   this.currentPager.preInit()
+    // }).catch(showWarning)
   }
 }
