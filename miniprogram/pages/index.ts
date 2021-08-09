@@ -3,6 +3,8 @@ import {showSuccess, showWarning} from "../utils/message";
 import Basis from "../core/basis";
 import PagerManager from "../core/PagerManager";
 import {Element, ImageElement, TextElement} from "../core/element";
+import {playAudio} from "../utils/audio";
+import {sleep} from "../utils/sleep";
 
 /**
  * 首页.
@@ -20,7 +22,7 @@ export default class Index extends Pager {
     Promise.resolve().then(async () => {
       const basis = Basis.getInstance();
       this.bgImg = await basis.loadImage('images/bg1.jpg')
-      this.render()
+      await this.render()
     }).catch(showWarning)
   }
 
@@ -34,7 +36,15 @@ export default class Index extends Pager {
       return;
     }
     if (button === '人机对战') {
-      PagerManager.getInstance().switchToPager('pve')
+      Promise.resolve().then(async () => {
+        playAudio('audio/开始游戏.mp3')
+        await sleep(800)
+        PagerManager.getInstance().switchToPager('pve')
+      }).catch(showWarning)
+      return;
+    }
+    if (button === '游戏设置') {
+      PagerManager.getInstance().switchToPager('setting')
       return;
     }
     showSuccess(button)

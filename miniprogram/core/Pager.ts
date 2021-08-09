@@ -42,32 +42,37 @@ export default abstract class Pager {
    * 渲染，只有调用了这个方法才会将内容重新渲染.
    * @protected
    */
-  public render(): void {
-    this.setElements(this.buildElements());
+  public render(): Promise<void> {
     if (this.status !== 'active') {
-      return;
+      return Promise.resolve();
     }
-    // 渲染所有的元素
-    for (let element of this.elements) {
-      // 判定元素是什么类型，由于都是接口，判定就比较麻烦了，不能使用 instanceof
-      const imageElement = element as ImageElement
-      if ('image' === imageElement.type && imageElement.image) {
-        renderImage(imageElement)
-        continue
-      }
-      const textElement = element as TextElement
-      if ('text' === textElement.type && textElement.text) {
-        renderText(textElement)
-        continue
-      }
-      const buttonElement = element as ButtonElement
-      if ('button' === buttonElement.type && buttonElement.text) {
-        renderButton(buttonElement)
-        continue
-      }
-      // 普通默认渲染
-      renderElement(element)
-    }
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        this.setElements(this.buildElements());
+        // 渲染所有的元素
+        for (let element of this.elements) {
+          // 判定元素是什么类型，由于都是接口，判定就比较麻烦了，不能使用 instanceof
+          const imageElement = element as ImageElement
+          if ('image' === imageElement.type && imageElement.image) {
+            renderImage(imageElement)
+            continue
+          }
+          const textElement = element as TextElement
+          if ('text' === textElement.type && textElement.text) {
+            renderText(textElement)
+            continue
+          }
+          const buttonElement = element as ButtonElement
+          if ('button' === buttonElement.type && buttonElement.text) {
+            renderButton(buttonElement)
+            continue
+          }
+          // 普通默认渲染
+          renderElement(element)
+        }
+        resolve()
+      })
+    });
   }
 
   protected abstract buildElements(): Element[];

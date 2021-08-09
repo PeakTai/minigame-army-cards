@@ -15,37 +15,28 @@ export default class About extends Pager {
   }
 
   private bgImg: any = null;
-  private intro: string = '这是一款很好玩的游戏，你玩过了就知道了，这是一款很好玩的游戏，你玩过了就知道了，这是一款很好玩的游戏，你玩过了就知道了，这是一款很好玩的游戏，你玩过了就知道了，这是一款很好玩的游戏，你玩过了就知道了，这是一款很好玩的游戏，你玩过了就知道了，'
+  private intro: string = '这'
 
   protected init(): void {
     showLoading('加载中')
     Promise.resolve().then(async () => {
       const basis = Basis.getInstance();
       this.bgImg = await basis.loadImage('images/bg2.png')
-      this.render()
+      await this.render()
+      hideLoading()
+      // 让简介信息一点点显示出来
+      const fullIntro = '一款充满童年回忆的军棋对战手牌游戏。手牌分为两类：人物和武器。人物按照职级上克下：司令 > 军长 > 师长'
+        + ' > 旅长 > 团长 > 营长 > 连长 > 排长 > 班长 > 工兵 ，职级低的一方开牌后失去手牌，同级别同归于尽。' +
+        '武器牌有两个：炸弹和地雷。炸弹克一切，遇到任何手牌都同归于尽。'
+        + '地雷遇到工兵牌会被对方获得，遇到其它牌和炸弹一样。'
+      for (let length = 1; length <= fullIntro.length; length++) {
+        this.intro = fullIntro.substr(0, length)
+        await this.render()
+      }
+
     }).catch(showWarning)
       .finally(hideLoading)
   }
-
-  // 手机上很卡，放弃了
-  // showIntroGradually() {
-  //   Promise.resolve().then(async () => {
-  //     const introEl = this.getElementById('intro')
-  //     if (!introEl) {
-  //       return
-  //     }
-  //     const textEl = introEl as TextElement
-  //     while (true) {
-  //       if (textEl.text.length >= this.intro.length) {
-  //         return
-  //       }
-  //       await sleep(100)
-  //       const length = textEl.text.length + 1
-  //       textEl.text = this.intro.substr(0, length)
-  //       this.render()
-  //     }
-  //   }).catch(showWarning)
-  // }
 
   backToIndex() {
     PagerManager.getInstance().switchToPager('index')
@@ -62,12 +53,13 @@ export default class About extends Pager {
       bottom: 0
     }
     elements.push(bg)
+
     const title: TextElement = {
       type: "text",
       top: this.getHeight() * 0.1,
       left: this.getWidth() * 0.05,
-      width: this.getWidth() * 0.8,
-      height: this.getWidth() * 0.1,
+      width: this.getWidth() * 0.9,
+      height: this.getHeight() * 0.1,
       fontSize: this.getWidth() * 0.08,
       lineHeight: this.getWidth() * 0.1,
       color: 'white',
@@ -75,6 +67,7 @@ export default class About extends Pager {
       text: '军棋对战牌',
     }
     elements.push(title)
+
     const intro: TextElement = {
       type: 'text',
       top: this.getHeight() * 0.2,
@@ -82,17 +75,17 @@ export default class About extends Pager {
       width: this.getWidth() * 0.9,
       fontSize: this.getWidth() * 0.05,
       lineHeight: this.getWidth() * 0.1,
-      height: this.getHeight() * 0.6,
+      height: this.getHeight() * 0.7,
       color: 'white',
       align: 'left',
       text: this.intro,
     }
-
     elements.push(intro)
+
 
     const back: ButtonElement = {
       type: 'button',
-      bottom: this.getHeight() * 0.2,
+      top: this.getHeight() * 0.9,
       left: this.getWidth() * 0.05,
       width: this.getWidth() * 0.9,
       fontSize: this.getWidth() * 0.05,

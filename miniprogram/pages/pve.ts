@@ -6,6 +6,8 @@ import {ButtonElement, Element, ImageElement, TextElement} from "../core/element
 import InnerAudioContext = WechatMinigame.InnerAudioContext;
 import {sleep} from "../utils/sleep";
 import PagerManager from "../core/PagerManager";
+import {playAudio} from "../utils/audio";
+import {GameSetting, getGameSetting} from "../service/game-setting";
 
 interface CardInfo extends Card {
   image: any;
@@ -26,31 +28,43 @@ interface PromptInfo {
 
 export default class Pve extends Pager {
 
+  private gameSetting: GameSetting = getGameSetting()
   private ourSideCards: CardInfo[] = []
   private otherSideCards: CardInfo[] = []
   private bgmAudio: InnerAudioContext | null = null
   private bgImage: any = null;
   private ourSideCardBackImg: any = null;
   private otherSideCardBackImg: any = null;
+  private otherSideThinkingImg: any = null;
+  private pleasePlayCardImg: any = null;
   // 我方出的牌
   private ourSidePlayCard: CardInfo | null = null
   // 对方出的牌
   private otherSidePlayCard: CardInfo | null = null
   private explosions: any[] = []
   private explosionImg: any = null;
-  private explosionAudio: InnerAudioContext | null = null
   // 通用提示信息，由标题，图片，确认和取消按钮组成
   private prompt: PromptInfo | null = null
+  // 判定信息，显示在牌的上方位置
+  private judgeInfo: string = ''
+  /**
+   * 判定区的元素信息，由判定方法完成管理.
+   * @private
+   */
+  private judgeElements: Element[] = []
 
-  private pageStatus: 'preparing' | 'wait_for_our_play' | 'wait_for_other_play' | 'prompt'
+  private pageStatus: 'preparing' | 'wait_for_play_card' | 'prompt'
     | 'victory' | 'draw' | 'defeat' | 'loading' | 'error'
-    | 'wait_for_judge' | 'showdown' = 'wait_for_our_play'
+    | 'wait_for_judge' | 'showdown' = 'preparing'
 
   getId(): string {
     return "pve";
   }
 
   protected destroy(): void {
+    if (this.bgmAudio) {
+      this.bgmAudio.pause()
+    }
   }
 
   protected init(): void {
@@ -58,27 +72,31 @@ export default class Pve extends Pager {
     Promise.resolve().then(async () => {
       this.pageStatus = 'preparing'
       const basis = Basis.getInstance();
+      this.gameSetting = getGameSetting()
       // 背景音乐
-      if (!this.bgmAudio) {
-        this.bgmAudio = wx.createInnerAudioContext();
-        this.bgmAudio.src = 'audio/bgm.mp3'
-        this.bgmAudio.loop = true
-        this.bgmAudio.play()
-      } else {
-        this.bgmAudio.play()
+      if (this.gameSetting.bgmEnabled) {
+        if (!this.bgmAudio) {
+          this.bgmAudio = wx.createInnerAudioContext();
+          this.bgmAudio.src = 'audio/bgm.mp3'
+          this.bgmAudio.loop = true
+          this.bgmAudio.play()
+        } else {
+          this.bgmAudio.play()
+        }
       }
-      // 爆炸特效音
-      this.explosionAudio = wx.createInnerAudioContext()
-      this.explosionAudio.src = 'audio/boom.mp3'
       // 图片资源
       this.bgImage = await basis.loadImage('images/bg2.png')
       this.ourSideCardBackImg = await basis.loadImage('images/our-side-card-back.png')
       this.otherSideCardBackImg = await basis.loadImage('images/other-side-card-back.png')
+      this.otherSideThinkingImg = await basis.loadImage('images/对方思考中.png')
+      this.pleasePlayCardImg = await basis.loadImage('images/请出牌.png')
       // 爆炸特效图片加载
       this.explosions = []
       for (let i = 1; i < 19; i++) {
         this.explosions.push(await basis.loadImage(`images/explosion${i}.png`))
       }
+      // 清理掉提示信息
+      this.prompt = null
       // 手牌素材加载
       const originCards = getAllCards()
       this.ourSideCards = []
@@ -87,38 +105,43 @@ export default class Pve extends Pager {
         const image = await basis.loadImage(originCard.imageUrl)
         this.ourSideCards.push(Object.assign({}, originCard, {image, selected: false}))
         this.otherSideCards.push(Object.assign({}, originCard, {image, selected: false}))
-        await sleep(30)
-        this.render()
+        await this.render()
       }
-      this.pageStatus = 'wait_for_other_play'
-      this.render()
+      this.otherSideCards.sort(() => Math.random() > 0.5 ? -1 : 1)
+      this.pageStatus = 'wait_for_play_card'
+      await this.render()
       // 让机器人先出牌
       this.otherSidePlayCardOut()
     }).catch((e) => {
       this.pageStatus = 'error'
       showWarning(e)
-    })
-      .finally(hideLoading)
+    }).finally(hideLoading)
   }
 
   public handleCardSelect(card: CardInfo) {
-    // 不是我方出牌，则不处理事件
-    if (this.pageStatus !== 'wait_for_our_play') {
-      showWarning('现在还没到我方出牌')
+    // 不是出牌阶段，不处理
+    if (this.pageStatus !== 'wait_for_play_card') {
       return
     }
     card.selected = !card.selected
     if (card.selected) {
-      console.log(`选中手牌${card.name}`)
+      playAudio('audio/选牌.wav')
     } else {
-      console.log(`取消选中手牌${card.name}`)
+      playAudio('audio/取消出牌.wav')
     }
+
     for (let ourSideCard of this.ourSideCards) {
       if (ourSideCard !== card) {
         ourSideCard.selected = false
       }
     }
-    this.render()
+    this.render().catch(showWarning)
+  }
+
+  private getCardSize(): { cardWidth: number, cardHeight: number } {
+    const cardWidth = this.getWidth() / 2.5
+    const cardHeight = cardWidth * (4 / 3)
+    return {cardWidth, cardHeight}
   }
 
   protected buildElements(): Element[] {
@@ -134,11 +157,57 @@ export default class Pve extends Pager {
       image: this.bgImage
     }
     elements.push(bgEl)
+
+    //回到菜单信息显示
+    const backBtn: TextElement = {
+      type: 'text',
+      text: 'x 退出本局',
+      top: this.getWidth() * 0.1,
+      left: this.getWidth() * 0.05,
+      fontSize: this.getWidth() * 0.05,
+      lineHeight: this.getWidth() * 0.08,
+      width: this.getWidth() * 0.9,
+      height: this.getWidth() * 0.1,
+      align: 'left',
+      color: 'white',
+      onclick: () => {
+        wx.showModal({
+          title: '退出本局游戏',
+          content: '确认要退出本局游戏吗？'
+        }).then((result) => {
+          if (result.confirm) {
+            PagerManager.getInstance().switchToPager('index')
+          }
+        }).catch(showWarning)
+      }
+    }
+    elements.push(backBtn)
+
+    const {cardWidth, cardHeight} = this.getCardSize()
+
+    // 判定信息，这个显示优先级要低于手牌
+    if (this.judgeInfo) {
+      const info: TextElement = {
+        type: 'text',
+        text: this.judgeInfo,
+        width: this.getWidth() * 0.9,
+        bottom: cardHeight * 1.5 + this.getWidth() * 0.01,
+        fontSize: this.getWidth() * 0.04,
+        lineHeight: this.getWidth() * 0.05,
+        height: this.getWidth() * 0.06,
+        left: this.getWidth() * 0.05,
+        color: 'white',
+        align: 'left'
+      }
+      elements.push(info)
+    }
+    if (this.judgeElements && this.judgeElements.length) {
+      elements.push(...this.judgeElements)
+    }
+
     // 按照一行显示7张，来看每张牌的显示宽度
     // 每张牌被下一张牌盖住只显示四分之一宽度
     // 一张牌的宽度应该是 6*(1/4)+1 = 2.5
-    const cardWidth = this.getWidth() / 2.5
-    const cardHeight = cardWidth * (4 / 3)
     let selectedCard: CardInfo | null = null;
     for (let i = 0; i < this.ourSideCards.length; i++) {
       const card = this.ourSideCards[i]
@@ -195,92 +264,41 @@ export default class Pve extends Pager {
       elements.push(cancelButton)
     }
 
-    // 我方出牌后的展示
-    if (this.ourSidePlayCard) {
-      // 我方展示手牌的区域占用了1.5倍的牌高，有选中的情况下，占用是 1.5+0.25 = 1.75
-      // 在 1.8 倍牌高的地方展示已经出去的手牌，这个区域展示的手牌小一点，只有手牌的0.8倍
+    // 请出牌提示
+    if (this.pageStatus === 'wait_for_play_card') {
       const ourPlayCardImg: ImageElement = {
         type: 'image',
-        image: this.pageStatus === 'showdown' ? this.ourSidePlayCard.image : this.ourSideCardBackImg,
+        image: this.ourSidePlayCard ? this.ourSideCardBackImg : this.pleasePlayCardImg,
         bottom: cardHeight * 1.8,
         left: this.getWidth() * 0.5 + 30,
         height: cardHeight * 0.8,
         width: cardWidth * 0.8
       }
       elements.push(ourPlayCardImg)
-    }
-    // 对方出牌后的提示,牌的位置信息参考上面
-    if (this.otherSidePlayCard) {
-      const ourPlayCardImg: ImageElement = {
+      // 对方出牌提示
+      const otherSidePlayCardImg: ImageElement = {
         type: 'image',
-        image: this.pageStatus === 'showdown' ? this.otherSidePlayCard.image : this.otherSideCardBackImg,
+        image: this.otherSidePlayCard ? this.otherSideCardBackImg : this.otherSideThinkingImg,
         bottom: cardHeight * 1.8,
         right: this.getWidth() * 0.5 + 30,
         height: cardHeight * 0.8,
         width: cardWidth * 0.8
       }
-      elements.push(ourPlayCardImg)
+      elements.push(otherSidePlayCardImg)
     }
 
-    // 请出牌提示
-    if (!this.ourSidePlayCard && this.pageStatus === 'wait_for_our_play') {
-      const text = ['牌', '出', '请']
-      const fontSize = this.getWidth() * 0.06
-      const lineHeight = this.getWidth() * 0.1
-      const bottom = cardHeight * 1.8 + (cardHeight * 0.8 - lineHeight * text.length) / 2
-      const left = this.getWidth() * 0.5 + 30
-      for (let i = 0; i < text.length; i++) {
-        const textEl: TextElement = {
-          type: "text",
-          text: text[i],
-          bottom: bottom + i * lineHeight,
-          height: lineHeight,
-          left,
-          lineHeight,
-          fontSize,
-          width: fontSize * 1.5,
-          color: 'red',
-          align: 'left'
-        }
-        elements.push(textEl)
-      }
-    }
-
-    // 对方出牌提示
-    if (this.pageStatus === 'wait_for_other_play' && !this.otherSidePlayCard) {
-      const text = ['中', '牌', '出', '方', '对']
-      const fontSize = this.getWidth() * 0.06
-      const lineHeight = this.getWidth() * 0.1
-      const bottom = cardHeight * 1.8 + (cardHeight * 0.8 - lineHeight * text.length) / 2
-      const right = this.getWidth() * 0.5 + 30
-      for (let i = 0; i < text.length; i++) {
-        const textEl: TextElement = {
-          type: "text",
-          text: text[i],
-          bottom: bottom + i * lineHeight,
-          height: lineHeight,
-          right,
-          lineHeight,
-          fontSize,
-          width: fontSize * 1.5,
-          color: 'red',
-          align: 'left'
-        }
-        elements.push(textEl)
-      }
-    }
 
     // 对方手牌数量展示
     const otherSideCardCount: TextElement = {
       type: 'text',
       text: `对方剩余手牌：${this.otherSideCards.length}`,
-      top: this.getHeight() * 0.05,
+      top: this.getWidth() * 0.2,
       width: this.getWidth() * 0.9,
       left: this.getWidth() * 0.05,
       height: this.getWidth() * 0.1,
-      lineHeight: this.getWidth() * 0.1,
-      fontSize: this.getWidth() * 0.06,
-      color: 'green',
+      lineHeight: this.getWidth() * 0.08,
+      fontSize: this.getWidth() * 0.05,
+      color: this.otherSideCards.length > 6 ? 'green' : 'red',
       align: 'left'
     }
     elements.push(otherSideCardCount)
@@ -348,15 +366,18 @@ export default class Pve extends Pager {
    */
   otherSidePlayCardOut() {
     Promise.resolve().then(async () => {
-      await sleep(1000)
+      if (this.pageStatus !== 'wait_for_play_card') {
+        return
+      }
+      await sleep(3000)
       let randomIdx = Math.round(Math.random() * this.otherSideCards.length)
       if (randomIdx > this.otherSideCards.length - 1) {
         randomIdx = this.otherSideCards.length - 1
       }
       this.otherSidePlayCard = this.otherSideCards[randomIdx]
       this.otherSideCards.splice(randomIdx, 1)
-      this.pageStatus = 'wait_for_our_play'
-      this.render()
+      this.processJudge()
+      await this.render()
     }).catch(showWarning)
   }
 
@@ -372,8 +393,8 @@ export default class Pve extends Pager {
     this.ourSideCards.splice(idx, 1)
     card.selected = false
     this.ourSidePlayCard = card
-    this.pageStatus = 'wait_for_judge'
-    this.render()
+    playAudio('audio/出牌.wav')
+    this.render().catch(showWarning)
     this.processJudge()
   }
 
@@ -382,10 +403,32 @@ export default class Pve extends Pager {
       if (!this.ourSidePlayCard || !this.otherSidePlayCard) {
         return
       }
+      this.pageStatus = 'wait_for_judge'
       console.log(`我方出牌：${this.ourSidePlayCard.name}，对方出牌：${this.otherSidePlayCard.name} `)
       // 亮牌
       this.pageStatus = 'showdown'
-      this.render()
+      this.judgeElements = []
+      const {cardWidth, cardHeight} = this.getCardSize()
+      const ourSidePlayCardImg: ImageElement = {
+        type: 'image',
+        image: this.ourSidePlayCard.image,
+        bottom: cardHeight * 1.8,
+        left: this.getWidth() * 0.5 + 30,
+        height: cardHeight * 0.8,
+        width: cardWidth * 0.8
+      }
+      this.judgeElements.push(ourSidePlayCardImg)
+      const otherSidePlayImg: ImageElement = {
+        type: 'image',
+        image: this.otherSidePlayCard.image,
+        bottom: cardHeight * 1.8,
+        right: this.getWidth() * 0.5 + 30,
+        height: cardHeight * 0.8,
+        width: cardWidth * 0.8
+      }
+      this.judgeElements.push(otherSidePlayImg)
+
+      await this.render()
       const result = judge(this.ourSidePlayCard, this.otherSidePlayCard)
       // 判定是否要播放炸弹特效
       let showBoom: boolean = false
@@ -402,45 +445,88 @@ export default class Pve extends Pager {
       }
       if (showBoom) {
         // 播放爆炸特效
-        if (this.explosionAudio) {
-          this.explosionAudio.play()
+        if (this.gameSetting.soundEffectEnabled) {
+          playAudio('audio/boom.mp3')
         }
         for (let i = 0; i < this.explosions.length; i++) {
           this.explosionImg = this.explosions[i]
-          await sleep(20)
-          this.render()
+          await this.render()
         }
         this.explosionImg = null
-        this.render()
+        await this.render()
       }
       // 亮牌后等待一秒左右再处理手牌，否则看不到牌就没了
       await sleep(1000)
       // 处理手牌
       let msg = ''
       if (result.ourSide === 'discard') {
-        msg = '我方失去手牌'
+        msg = `我方失去手牌${this.ourSidePlayCard.name}`
+        if (this.gameSetting.soundEffectEnabled && !showBoom) {
+          playAudio('audio/失败.wav')
+        }
       } else if (result.ourSide === 'acquire') {
-        msg = '我方获得对方手牌'
+        msg = `我方获得对方手牌${this.otherSidePlayCard.name}`
+        if (this.gameSetting.soundEffectEnabled && !showBoom) {
+          playAudio('audio/成功.wav')
+        }
         this.ourSideCards.push(this.ourSidePlayCard)
         this.ourSideCards.push(this.otherSidePlayCard)
       } else if (result.ourSide === 'keep') {
-        msg = '我方收回手牌'
+        if (this.gameSetting.soundEffectEnabled && !showBoom) {
+          playAudio('audio/成功.wav')
+        }
+        msg = `我方收回手牌${this.ourSidePlayCard.name}`
         this.ourSideCards.push(this.ourSidePlayCard)
       }
       if (result.otherSide === 'discard') {
-        msg += '，对方失去手牌'
+        msg += `，对方失去手牌${this.otherSidePlayCard.name}`
       } else if (result.otherSide === 'acquire') {
-        msg += '对方获得手牌'
+        msg += `对方获得手牌${this.otherSidePlayCard.name}`
         this.otherSideCards.push(this.ourSidePlayCard)
         this.otherSideCards.push(this.otherSidePlayCard)
       } else if (result.otherSide === 'keep') {
-        msg += '对方收回手牌'
+        msg += `对方收回手牌${this.otherSidePlayCard.name}`
         this.otherSideCards.push(this.otherSidePlayCard)
       }
+      // 清空手牌前，有对应的动画
+      const frameCount = 30;
+      for (let i = 0; i < frameCount; i++) {
+        // 两种情况，要么弃牌，要么收回
+        if (result.ourSide === 'discard') {
+          // 如果对方获取我们的牌，那么需要向上移动
+          if (result.otherSide === 'acquire') {
+            // bottom最终要变成页面的height
+            ourSidePlayCardImg.bottom = cardHeight * 1.8 + (this.getHeight() - cardHeight * 1.8) / frameCount * (i + 1)
+          } else {
+            // 向右移，最终 left 要变成页面的 width
+            ourSidePlayCardImg.left = (this.getWidth() * 0.5 + 30)
+              + (this.getWidth() - this.getWidth() * 0.5 + 30) / frameCount * (i + 1)
+          }
+        } else {
+          // 我方获取牌和保持牌将牌向下移动，bottom最终要变成 0.5 cardHeight
+          ourSidePlayCardImg.bottom = cardHeight * 1.8 - (cardHeight * 1.8 - cardHeight * 0.5) / frameCount * (i + 1)
+        }
+        if (result.otherSide == 'discard') {
+          // 对方弃牌，如果是我方获取牌则向下移动，否则向左移动
+          if (result.ourSide === 'acquire') {
+            // 向下，bottom最终要变成 0.5 cardHeight
+            otherSidePlayImg.bottom = cardHeight * 1.8 - (cardHeight * 1.8 - cardHeight * 0.5) / frameCount * (i + 1)
+          } else {// 向左移动，最终right 要变成页面宽度
+            otherSidePlayImg.right = (this.getWidth() - this.getWidth() * 0.5 + 30) / frameCount * (i + 1)
+              + (this.getWidth() * 0.5 + 30)
+          }
+        } else {
+          // 向上 bottom最终要变成页面的height
+          otherSidePlayImg.bottom = (this.getHeight() - cardHeight * 1.8) / frameCount * (i + 1)
+            + cardHeight * 1.8
+        }
+        await this.render()
+      }
+      this.judgeElements = []
       this.ourSidePlayCard = null
       this.otherSidePlayCard = null
-      showWarning(msg)
-      this.render()
+      this.judgeInfo = msg
+      await this.render()
       const basis = Basis.getInstance();
       // 判定输赢
       let promptImg: any = null;
@@ -461,12 +547,13 @@ export default class Pve extends Pager {
         promptImg = await basis.loadImage('images/胜利.png')
       } else {
         // 如果双方都还有牌，继续让对方出牌
-        this.pageStatus = 'wait_for_other_play'
-        this.render()
+        this.pageStatus = 'wait_for_play_card'
+        await this.render()
         this.otherSidePlayCardOut()
       }
       if (promptImg) {
         this.ourSideCards = []
+        this.judgeInfo = ''
         this.prompt = {
           image: promptImg,
           imageHeight: 0,
@@ -488,8 +575,7 @@ export default class Pve extends Pager {
           }
           this.prompt.imageWidth = (i + 1) * step
           this.prompt.imageHeight = (i + 1) * step
-          await sleep(16)
-          this.render()
+          await this.render()
         }
       }
     }).catch(showWarning)
@@ -499,7 +585,8 @@ export default class Pve extends Pager {
     for (let card of this.ourSideCards) {
       card.selected = false
     }
-    this.render()
+    playAudio('audio/取消出牌.wav')
+    this.render().catch(showWarning)
   }
 
 }

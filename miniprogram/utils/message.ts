@@ -6,6 +6,7 @@ export function showWarning(msg: any): void {
   const toastId = new Date().getTime();
   let message = msg;
   if (msg.message) {
+    console.log(msg)
     message = msg.message;
   }
   globalTosatId = toastId;
@@ -13,7 +14,7 @@ export function showWarning(msg: any): void {
     title: message,
     icon: 'none',
     duration: 2000,
-    mask: true,
+    mask: false,
     success: () => {
       if (toastId === globalTosatId) {
         globalTosatId = 0;
