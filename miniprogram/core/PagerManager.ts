@@ -30,7 +30,7 @@ export default class PagerManager {
   private constructor() {
   }
 
-  public switchToPager(id: string): void {
+  public switchToPager(id: string, query?: any): void {
     const targetPager = this.map.get(id)
     if (!targetPager) {
       showWarning(`找不到要切换的页面：${id}`)
@@ -46,7 +46,7 @@ export default class PagerManager {
 
     basis.clearScreen()
     this.currentPager = targetPager;
-    this.currentPager.preInit()
+    this.currentPager.preInit(query)
     // // 以后可能做个切换特效
     // // todo 实现切换特效
     // Promise.resolve().then(async () => {

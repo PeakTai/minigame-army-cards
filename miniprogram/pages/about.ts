@@ -91,8 +91,8 @@ export default class About extends Pager {
       fontSize: this.getWidth() * 0.05,
       height: this.getWidth() * 0.12,
       text: '返回菜单',
-      color: 'white',
-      bgColor: 'rgba(0 ,0 ,0, 0.7)',
+      // color: 'white',
+      // bgColor: 'rgba(0 ,0 ,0, 0.7)',
       onclick: this.backToIndex
     }
     elements.push(back)

@@ -1,0 +1,71 @@
+import UserInfo = WechatMinigame.UserInfo;
+import RealtimeListener = DB.RealtimeListener;
+import ISnapshot = DB.ISnapshot;
+
+export interface PlayerInfo extends UserInfo {
+  openId: string
+}
+
+/**
+ * 一局游戏，由程序自动创建.
+ */
+export interface Round {
+  _id: string;
+  // 创建者的id，如果是邀请创建的游戏，则值为邀请者的id，自动匹配的则有可能是任何一个人
+  _openid: string;
+  // 两名玩家
+  players: PlayerInfo[];
+  // 开始时间
+  createAt: Date;
+}
+
+export function getRoundCollection(): DB.CollectionReference {
+  const db = wx.cloud.database();
+  return db.collection('round');
+}
+
+
+export async function findRoundByPlayerOpenId(openId: string): Promise<Round | null> {
+  const result = await getRoundCollection().where({
+    'players.openId': openId
+  }).get()
+  if (result && result.data && result.data.length) {
+    return result.data[0] as Round
+  }
+  return null
+}
+
+export async function onInvitation(userInfo: UserInfo, code: string): Promise<string> {
+  const event = await wx.cloud.callFunction({
+    name: 'on_invitation',
+    data: {userInfo, code}
+  })
+  const result = event.result as any;
+  if (result.ok) {
+    return result.id;
+  }
+  // 如果发生异常
+  if (result.error) {
+    throw result.error;
+  }
+  throw '参与游戏失败';
+}
+
+export async function findRoundById(roundId: string): Promise<Round | null> {
+  const result = await getRoundCollection().where({_id: roundId}).get()
+  if (!result.data || !result.data.length) {
+    return null;
+  }
+  return result.data[0] as Round
+}
+
+export function watchRoundStart(openId: string, callback: (snapshot: ISnapshot) => void, errHandler: (err: any) => void): RealtimeListener {
+  return getRoundCollection().where({
+    _openid: openId
+  }).orderBy('createAt', 'desc')
+    .limit(1).watch({
+      onChange: callback,
+      onError: errHandler
+    })
+}
+

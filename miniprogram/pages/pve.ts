@@ -97,6 +97,8 @@ export default class Pve extends Pager {
       }
       // 清理掉提示信息
       this.prompt = null
+      this.ourSidePlayCard = null
+      this.otherSidePlayCard = null
       // 手牌素材加载
       const originCards = getAllCards()
       this.ourSideCards = []
@@ -448,6 +450,7 @@ export default class Pve extends Pager {
         if (this.gameSetting.soundEffectEnabled) {
           playAudio('audio/boom.mp3')
         }
+        wx.vibrateLong({type: 'heavy', fail: showWarning})
         for (let i = 0; i < this.explosions.length; i++) {
           this.explosionImg = this.explosions[i]
           await this.render()

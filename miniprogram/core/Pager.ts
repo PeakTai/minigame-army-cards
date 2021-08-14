@@ -1,7 +1,7 @@
-import {boundingContain, ButtonElement, Element, ImageElement, TextElement} from "./element";
+import {boundingContain, ButtonElement, Element, ImageElement, TextElement, TiledBgElement} from "./element";
 import Basis from "./basis";
 import OnTouchStartCallbackResult = WechatMinigame.OnTouchStartCallbackResult;
-import {renderButton, renderElement, renderImage, renderText} from "./render";
+import {renderButton, renderElement, renderImage, renderText, renderTiledBg} from "./render";
 
 /**
  * 页面抽象类.
@@ -67,6 +67,11 @@ export default abstract class Pager {
             renderButton(buttonElement)
             continue
           }
+          const tiledBgElement = element as TiledBgElement
+          if ('tiled-bg' === tiledBgElement.type && tiledBgElement.image) {
+            renderTiledBg(tiledBgElement)
+            continue
+          }
           // 普通默认渲染
           renderElement(element)
         }
@@ -87,6 +92,11 @@ export default abstract class Pager {
     // 判定所有元素的的边界
     for (let i = 0; i < this.elements.length; i++) {
       const element = this.elements[i]
+      // 忽略掉背景元素
+      const assumedTiledBgElement = element as TiledBgElement
+      if ('tiled-bg' === assumedTiledBgElement.type && assumedTiledBgElement.image) {
+        continue
+      }
       if (!element.onclick) {
         continue
       }
@@ -114,14 +124,14 @@ export default abstract class Pager {
 
   public abstract getId(): string;
 
-  public preInit(): void {
+  public preInit(query?: any): void {
     this.touchStartHandler = this.handleTouchStart.bind(this)
     wx.onTouchStart(this.touchStartHandler)
     this.status = 'active'
-    this.init()
+    this.init(query)
   }
 
-  protected abstract init(): void;
+  protected abstract init(query?: any): void;
 
   public preDestroy(): void {
     if (this.touchStartHandler) {
