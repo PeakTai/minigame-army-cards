@@ -29,7 +29,7 @@ Basis.init().then(() => {
     }
   }
   // 初始化成功后设置页面，切换到首页
-  const pagerManager = PagerManager.init([
+  PagerManager.init([
     new Index(),
     new Pve(),
     new About(),
@@ -39,7 +39,10 @@ Basis.init().then(() => {
     new PvpRound(),
     new PvpAutoMatching()
   ])
-  pagerManager.switchToPager('index')
+  wx.onShow(() => {
+    PagerManager.getInstance().switchToPager('index', {})
+  })
+
 }).catch((error) => {
   const msg = error.msg ? error.msg : `${error}`
   wx.showToast({
@@ -48,3 +51,4 @@ Basis.init().then(() => {
   }).catch(() => {
   })
 })
+

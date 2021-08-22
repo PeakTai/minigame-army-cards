@@ -22,17 +22,22 @@ exports.main = async (event, context) => {
     try {
         const wxContext = cloud.getWXContext()
         const openid = wxContext.OPENID
+        console.log('openId', openid)
         // 判断玩家是不是已经在游戏了
-        const getRoundResult = await db.collection('round').where({'players.openId': openid}).get()
+        const getRoundResult = await db.collection('round').where({'playerInfos.openId': openid}).get()
         const round = getRoundResult.data && getRoundResult.data.length ?
             getRoundResult.data[0] : undefined
         if (round) {
-            return {ok: true, roundId: round._id}
+            if (round.status === 'underway') {
+                return {ok: true, roundId: round._id}
+            } else {
+                await db.collection('round').doc(round._id).remove()
+            }
         }
         const getPlayerResult = await db.collection('waiting-player').where({_openid: openid}).get()
         const player = getPlayerResult.data && getPlayerResult.data.length ? getPlayerResult.data[0] : undefined
         if (!player) {
-            return {ok: false, error: '找不到要匹配的玩家信息'}
+            throw '找不到要匹配的玩家信息'
         }
         // 寻找可以匹配的玩家
         const getPlayerListResult = await db.collection('waiting-player').where({})
@@ -40,30 +45,63 @@ exports.main = async (event, context) => {
         const playerList = getPlayerListResult.data && getPlayerListResult.data.length ?
             getPlayerListResult.data : []
         const matchPlayer = playerList.find(item => item._id !== player._id)
+        console.log('匹配玩家', player)
         if (!matchPlayer) {
-            return {ok: false, error: '找不到可以匹配的玩家'}
+            throw '找不到可以匹配的玩家'
         }
-        // 开始创建信息：事务中 删除邀请再创建对局
         const roundId = await db.runTransaction(async transaction => {
+            // 删除玩家信息
+            await transaction.collection('waiting-player').doc(player._id).remove()
+            await transaction.collection('waiting-player').doc(matchPlayer._id).remove()
+            await transaction.collection('invitation').where({_openid: openid}).remove()
+            console.log('开始保存牌局信息')
+
             const result = await transaction.collection('round').add({
                 data: {
-                    players: [
-                        Object.assign({}, player.userInfo, {openId: player._openid}),
-                        Object.assign({}, matchPlayer.userInfo, {openId: matchPlayer._openid})
+                    playerInfos: [
+                        Object.assign({}, matchPlayer.userInfo, {
+                            openId: matchPlayer._openid,
+                            keepCards: getAllCards(),
+                            playOutCards: null
+                        }),
+                        Object.assign({}, player.userInfo, {
+                            openId: openid,
+                            keepCards: getAllCards(),
+                            playOutCards: null
+                        })
                     ],
+                    records: [],
                     _openid: player._openid,
-                    createAt: new Date()
+                    status: 'underway',
+                    createAt: new Date(),
+                    updateAt: new Date()
                 }
             })
-            // 删除玩家信息
-            await db.collection('waiting-player').doc(player._id).remove()
-            await db.collection('waiting-player').doc(matchPlayer._id).remove()
-            await transaction.collection('invitation').doc(player._id).remove()
-            await transaction.collection('invitation').where({_openid: openid}).remove()
+            console.log('保存 round 成功', result)
             return result._id
         })
         return {ok: true, roundId}
     } catch (e) {
+        console.error('finish_auto_match 发生异常', e)
         return {ok: false, error: e}
     }
+}
+
+function getAllCards() {
+    return [
+        {name: '工兵', type: 'figure', level: 1, imageUrl: 'images/card/工兵.png'},
+        {name: '工兵', type: 'figure', level: 1, imageUrl: 'images/card/工兵.png'},
+        {name: '班长', type: 'figure', level: 2, imageUrl: 'images/card/班长.png'},
+        {name: '排长', type: 'figure', level: 3, imageUrl: 'images/card/排长.png'},
+        {name: '连长', type: 'figure', level: 4, imageUrl: 'images/card/连长.png'},
+        {name: '营长', type: 'figure', level: 5, imageUrl: 'images/card/营长.png'},
+        {name: '团长', type: 'figure', level: 6, imageUrl: 'images/card/团长.png'},
+        {name: '旅长', type: 'figure', level: 7, imageUrl: 'images/card/旅长.png'},
+        {name: '师长', type: 'figure', level: 8, imageUrl: 'images/card/师长.png'},
+        {name: '军长', type: 'figure', level: 9, imageUrl: 'images/card/军长.png'},
+        {name: '司令', type: 'figure', level: 10, imageUrl: 'images/card/司令.png'},
+        {name: '地雷', type: 'weapon', level: 0, imageUrl: 'images/card/地雷.png'},
+        {name: '地雷', type: 'weapon', level: 0, imageUrl: 'images/card/地雷.png'},
+        {name: '炸弹', type: 'weapon', level: 0, imageUrl: 'images/card/炸弹.png'},
+    ]
 }

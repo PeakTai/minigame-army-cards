@@ -1,7 +1,6 @@
 import Pager from "../../core/Pager";
 import {ButtonElement, Element, getRealBoundingOfElement, TextElement} from "../../core/element";
 import {hideLoading, showLoading, showWarning} from "../../utils/message";
-import Basis from "../../core/basis";
 import PagerManager from "../../core/PagerManager";
 import {createInvitation, findInvitationByCode, findInvitationByOpenId} from "../../service/invitation";
 import {getAuthInfo} from "../../service/auth";
@@ -12,7 +11,6 @@ import {findRoundByPlayerOpenId, onInvitation} from "../../service/round";
  * 在线对战匹配页面.
  */
 export default class PvpMenu extends Pager {
-  private bgImage: any = null;
 
   private pvpStatus: 'ready' | 'confirmUserInfo' = 'ready'
   private userInfoCallback: ((userInfo?: UserInfo) => void) | null = null
@@ -112,6 +110,21 @@ export default class PvpMenu extends Pager {
       onclick: () => this.handleAttend()
     }
     elements.push(attendIntro)
+
+    const exitText: TextElement = {
+      type: "text",
+      text: '返回主菜单',
+      fontSize: this.getWidth() * 0.08,
+      left: this.getWidth() * 0.05,
+      bottom: this.getWidth() * 0.1,
+      lineHeight: this.getWidth() * 0.1,
+      height: this.getWidth() * 0.1,
+      width: this.getWidth() * 0.9,
+      color: 'white',
+      align: 'left',
+      onclick: () => PagerManager.getInstance().switchToPager('index')
+    }
+    elements.push(exitText)
     // 用户信息确认
     if (this.pvpStatus === "confirmUserInfo") {
       // 一层蒙版，上面是提示信息和确认取消按钮
@@ -321,15 +334,14 @@ export default class PvpMenu extends Pager {
   protected init(): void {
     showLoading()
     Promise.resolve().then(async () => {
-      const basis = Basis.getInstance();
       const auth = await getAuthInfo()
       const round = await findRoundByPlayerOpenId(auth.openid)
-      if (round) {
+      console.log(round)
+      if (round && round.status === 'underway') {
         // 如果已经有游戏存在了，立即进入游戏
         PagerManager.getInstance().switchToPager('pvpRound', {roundId: round._id})
         return
       }
-      this.bgImage = await basis.loadImage('images/bg2.png')
       await this.render()
     }).catch(showWarning)
       .finally(hideLoading)

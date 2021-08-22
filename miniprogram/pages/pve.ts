@@ -320,6 +320,15 @@ export default class Pve extends Pager {
 
     // 提示信息
     if (this.prompt) {
+      // 遮罩
+      const mask: Element = {
+        backgroundColor: 'rgba(0,0,0,.5)',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
+      }
+      elements.push(mask)
       const img: ImageElement = {
         type: 'image',
         image: this.prompt.image,
@@ -371,7 +380,7 @@ export default class Pve extends Pager {
       if (this.pageStatus !== 'wait_for_play_card') {
         return
       }
-      await sleep(3000)
+      await sleep(2000)
       let randomIdx = Math.round(Math.random() * this.otherSideCards.length)
       if (randomIdx > this.otherSideCards.length - 1) {
         randomIdx = this.otherSideCards.length - 1

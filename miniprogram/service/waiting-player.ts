@@ -32,17 +32,6 @@ export async function createWaitingPlayer(userInfo: UserInfo): Promise<WaitingPl
   return getResult.data as WaitingPlayer
 }
 
-
-export function watchPlayerList(callback: (snapshot: ISnapshot) => void, errHandler: (err: any) => void): RealtimeListener {
-  return getWaitingPlayerCollection().where({})
-    .orderBy('createAt', 'desc')
-    .limit(10)
-    .watch({
-      onChange: callback,
-      onError: errHandler
-    })
-}
-
 export function watchCurrentPlayer(openId: string, callback: (snapshot: ISnapshot) => void, errHandler: (err: any) => void): RealtimeListener {
   return getWaitingPlayerCollection().where({_openid: openId})
     .watch({
@@ -74,6 +63,10 @@ export async function findWaitingPlayerByOpenId(openId: string): Promise<Waiting
 }
 
 export async function deleteWaitingPlayer(id: string): Promise<void> {
+  const result = await getWaitingPlayerCollection().doc(id).get()
+  if (!result.data) {
+    return
+  }
   await getWaitingPlayerCollection().doc(id).remove()
 }
 
@@ -87,7 +80,7 @@ export async function createRoundByWaitingPlayer(): Promise<string> {
   }
   // 如果发生异常
   if (result.error) {
-    throw result.error;
+    throw result.error || '未知异常';
   }
   throw '参与游戏失败';
 }

@@ -1,4 +1,5 @@
 import Canvas = WechatMinigame.Canvas;
+import Image = WechatMinigame.Image;
 
 interface AvailableArea {
   width: number;
@@ -199,13 +200,20 @@ export default class Basis {
     renderContext.fillRect(0, 0, availableArea.width, availableArea.height)
   }
 
+  private imageCacheMap: Map<string, Image> = new Map<string, Image>();
+
   /***
    * 加载图片，返回图片对象
    */
-  public loadImage(url: string): Promise<any> {
+  public loadImage(url: string): Promise<Image> {
+    const existImage = this.imageCacheMap.get(url)
+    if (existImage) {
+      return Promise.resolve(existImage);
+    }
     return new Promise((resolve, reject) => {
       const image = wx.createImage()
       image.onload = () => {
+        this.imageCacheMap.set(url, image);
         resolve(image)
       };
       image.onerror = (e) => {

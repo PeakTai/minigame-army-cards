@@ -1,9 +1,15 @@
 import UserInfo = WechatMinigame.UserInfo;
 import RealtimeListener = DB.RealtimeListener;
 import ISnapshot = DB.ISnapshot;
+import {Card} from "../card/card";
+import {Record} from "./record";
 
 export interface PlayerInfo extends UserInfo {
-  openId: string
+  openId: string,
+  // 目前保持的手牌
+  keepCards: Card[],
+  // 打出去的牌，等待判定的牌
+  playOutCard?: Card,
 }
 
 /**
@@ -14,9 +20,13 @@ export interface Round {
   // 创建者的id，如果是邀请创建的游戏，则值为邀请者的id，自动匹配的则有可能是任何一个人
   _openid: string;
   // 两名玩家
-  players: PlayerInfo[];
+  playerInfos: PlayerInfo[];
   // 开始时间
   createAt: Date;
+  records: Record[];
+  // 状态
+  status: 'underway' | 'finished',
+  updateAt: Date;
 }
 
 export function getRoundCollection(): DB.CollectionReference {
@@ -24,10 +34,9 @@ export function getRoundCollection(): DB.CollectionReference {
   return db.collection('round');
 }
 
-
 export async function findRoundByPlayerOpenId(openId: string): Promise<Round | null> {
   const result = await getRoundCollection().where({
-    'players.openId': openId
+    'playerInfos.openId': openId
   }).get()
   if (result && result.data && result.data.length) {
     return result.data[0] as Round
@@ -67,5 +76,25 @@ export function watchRoundStart(openId: string, callback: (snapshot: ISnapshot) 
       onChange: callback,
       onError: errHandler
     })
+}
+
+export function watchRound(roundId: string, callback: (snapshot: ISnapshot) => void, errHandler: (err: any) => void): RealtimeListener {
+  return getRoundCollection().doc(roundId).watch({onChange: callback, onError: errHandler})
+}
+
+export async function pushRecord(record: Record): Promise<void> {
+  const event = await wx.cloud.callFunction({
+    name: 'pvp_push_record',
+    data: {record}
+  })
+  const result = event.result as any;
+  if (result.ok) {
+    return;
+  }
+  // 如果发生异常
+  if (result.error) {
+    throw result.error;
+  }
+  throw '连线失败';
 }
 

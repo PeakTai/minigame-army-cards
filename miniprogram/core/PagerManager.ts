@@ -38,7 +38,8 @@ export default class PagerManager {
     }
     const basis = Basis.getInstance();
     if (this.currentPager) {
-      if (this.currentPager.getId() === id) {
+      // 带参数的一定要刷新
+      if (this.currentPager.getId() === id && !query) {
         return
       }
       this.currentPager.preDestroy()

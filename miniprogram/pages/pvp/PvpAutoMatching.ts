@@ -5,10 +5,9 @@ import UserInfo = WechatMinigame.UserInfo;
 import {AuthInfo, getAuthInfo} from "../../service/auth";
 import {
   createRoundByWaitingPlayer,
-  createWaitingPlayer, deleteWaitingPlayer,
+  createWaitingPlayer, deleteWaitingPlayer, findTop10Players,
   findWaitingPlayerByOpenId,
   WaitingPlayer, watchCurrentPlayer,
-  watchPlayerList
 } from "../../service/waiting-player";
 import PagerManager from "../../core/PagerManager";
 import ISnapshot = DB.ISnapshot;
@@ -242,7 +241,11 @@ export default class PvpAutoMatching extends Pager {
           this.avatar = await Basis.getInstance().loadImage(this.player.userInfo.avatarUrl)
         }
         await this.render()
-        this.listWatch = watchPlayerList(this.handlePlayerListChange.bind(this), this.handleWatchError.bind(this))
+        // 匹配判定
+        const result = await this.tryMatch();
+        if (result) {
+          return
+        }
         this.playerWatch = watchCurrentPlayer(this.auth.openid, this.handlePlayerInfoChange.bind(this), this.handleWatchError.bind(this))
         return
       }
@@ -284,30 +287,6 @@ export default class PvpAutoMatching extends Pager {
     }).catch(showWarning)
   }
 
-  /**
-   * 处理玩家列表中的数据变化
-   * @param snapshot
-   * @private
-   */
-  private handlePlayerListChange(snapshot: ISnapshot) {
-    console.log('handlePlayerListChange', snapshot)
-    if (!snapshot.docChanges) {
-      return
-    }
-    Promise.resolve().then(async () => {
-      if (!this.player) {
-        return;
-      }
-      const matchPlayer = snapshot.docChanges.find(item => this.player && item.doc._id !== this.player._id)
-      if (matchPlayer) {
-        // 发送请求进行玩家的匹配
-        const roundId = await createRoundByWaitingPlayer()
-        PagerManager.getInstance().switchToPager('pvpRound', {roundId})
-      }
-    }).catch(showWarning)
-
-  }
-
   private handleWatchError(err: any) {
     Promise.resolve().then(async () => {
       console.error(err)
@@ -338,12 +317,32 @@ export default class PvpAutoMatching extends Pager {
       if (this.player.userInfo.avatarUrl) {
         this.avatar = await Basis.getInstance().loadImage(this.player.userInfo.avatarUrl)
       }
-      this.listWatch = watchPlayerList(this.handlePlayerListChange.bind(this), this.handleWatchError.bind(this))
-      this.playerWatch = watchCurrentPlayer(this.player._openid, this.handlePlayerInfoChange.bind(this), this.handleWatchError.bind(this))
       this.pvpStatus = 'ready'
       this.userInfoCallback = null
       await this.render()
+      const result = await this.tryMatch();
+      if (result) {
+        return
+      }
+      this.playerWatch = watchCurrentPlayer(this.player._openid, this.handlePlayerInfoChange.bind(this), this.handleWatchError.bind(this))
     }).catch(showWarning)
   }
 
+  private async tryMatch(): Promise<boolean> {
+    if (!this.player) {
+      return false
+    }
+    const players = await findTop10Players()
+    if (!players || !players.length) {
+      return false
+    }
+    const matchPlayer = players.find(item => this.player && item._id !== this.player._id)
+    if (!matchPlayer) {
+      return false
+    }
+    // 发送请求进行玩家的匹配
+    const roundId = await createRoundByWaitingPlayer()
+    PagerManager.getInstance().switchToPager('pvpRound', {roundId})
+    return true
+  }
 }
