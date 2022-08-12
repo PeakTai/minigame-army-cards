@@ -11,7 +11,7 @@ import {sleep} from "../utils/sleep";
  */
 export default class Index extends Pager {
 
-  private buttons: string[] = ['人机对战', '蓝牙对战', '在线对战', '游戏设置', '关于游戏']
+  private buttons: string[] = ['人机对战', '在线对战', '游戏设置', '关于游戏']
   private bgImg: any = null
 
   destroy(): void {
@@ -37,10 +37,15 @@ export default class Index extends Pager {
     }
     if (button === '人机对战') {
       Promise.resolve().then(async () => {
+        wx.vibrateLong({type: 'heavy', fail: showWarning})
         playAudio('audio/开始游戏.mp3')
         await sleep(800)
         PagerManager.getInstance().switchToPager('pve')
       }).catch(showWarning)
+      return;
+    }
+    if (button === '在线对战') {
+      PagerManager.getInstance().switchToPager('pvpMenu')
       return;
     }
     if (button === '游戏设置') {

@@ -41,6 +41,7 @@
   "projectname": "bg-wx-army-cards",
   "miniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunction/",
+  "cloudfunctionTemplateRoot": "cloudfunctionTemplate",
   "condition": {
     "search": {
       "list": []

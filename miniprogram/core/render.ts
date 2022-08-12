@@ -1,4 +1,4 @@
-import {ButtonElement, Element, getRealBoundingOfElement, ImageElement, TextElement} from "./element";
+import {ButtonElement, Element, getRealBoundingOfElement, ImageElement, TextElement, TiledBgElement} from "./element";
 import Basis from "./basis";
 
 // 渲染器，负责渲染各种元素
@@ -174,7 +174,7 @@ export function renderText(element: TextElement) {
     const text = lines[i]
     let top = bounding.top + i * element.lineHeight
     // 超出范围则隐藏
-    if (top + element.lineHeight > bounding.top + bounding.height) {
+    if (Math.floor(top + element.lineHeight) > Math.ceil(bounding.top + bounding.height)) {
       console.warn('文本超出范围，部分文字被隐藏', element)
       break
     }
@@ -194,4 +194,20 @@ export function renderText(element: TextElement) {
   }
 }
 
-
+export function renderTiledBg(element: TiledBgElement): void {
+  const basis = Basis.getInstance()
+  var availableArea = basis.getAvailableArea();
+  const renderContext = basis.getRenderContext();
+  // 计算可以绘制多少行和多少列
+  const imgHeight = element.image.height
+  const imgWidth = element.image.width
+  const cols = Math.ceil(availableArea.width / imgWidth)
+  const rows = Math.ceil(availableArea.height / imgHeight)
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const left = col * imgWidth + availableArea.left
+      const top = row * imgHeight + availableArea.top
+      renderContext.drawImage(element.image as any, left, top, imgWidth, imgHeight);
+    }
+  }
+}

@@ -48,6 +48,14 @@ export interface TextElement extends Element {
 }
 
 /**
+ * 平铺背景.渲染后会将给定的图片铺满整个屏幕，并且不会触发任何事件.
+ */
+export interface TiledBgElement extends Element {
+  type: 'tiled-bg';
+  image: Image;
+}
+
+/**
  * 图片元素.
  */
 export interface ImageElement extends Element {
